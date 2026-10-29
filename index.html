@@ -310,6 +310,9 @@ html[data-theme=px] .wait{background:#2f2a14;border:4px dashed var(--acc)}
 html[data-theme=px] .exp{background:#1d4d2d;border-color:#38b764}
 html[data-theme=px] .scr .ttl,html[data-theme=px] .lobby2 .lt,html[data-theme=px] .home h1{text-shadow:.07em .07em 0 #5d275d}
 html[data-theme=px] .wtc .mailpop :is(button,a){clip-path:none;border-color:var(--acc)}
+.host input[type=text]{background:#0a181c;border:1px solid var(--line);border-radius:8px;padding:.45em .7em;min-width:13em;max-width:100%}
+html[data-theme=mc] .host input[type=text]{background:#000;border:3px solid #8b8b8b;color:#fff}
+html[data-theme=px] .host input[type=text]{background:#0f1020;border:4px solid #41a6f6;color:#f4f4f4}
 </style>
 </head>
 <body>
@@ -331,8 +334,15 @@ const CFG=Object.assign({title:'知識王',icon:'🎓',subtitle:'一個大螢幕
 CFG.labels=Object.assign({lv1:'年級',lv2:'難度',cat:'類別'},UC.labels||{});
 const SK=CFG.storageKey, PP=CFG.peerPrefix||(SK+'-');
 const CHARS=[0,1,2,3].map(i=>(CFG.characters&&CFG.characters[i])||('隊員'+(i+1)));
-const TITLE=CFG.icon+' '+CFG.title;
-document.title=CFG.title;
+const BASE_TITLE=CFG.title;let CUR_TITLE=BASE_TITLE,TITLE=CFG.icon+' '+BASE_TITLE;
+/* 遊戲名稱：主持人可在控制台修改，會同步到大螢幕與選手手機；留空＝還原 config.js 的預設名稱 */
+function setTitle(n,save){
+  n=String(n==null?'':n).trim().slice(0,20)||BASE_TITLE;
+  CUR_TITLE=n;TITLE=CFG.icon+' '+n;document.title=n;
+  if(save)try{if(n===BASE_TITLE)localStorage.removeItem(SK+'-title');else localStorage.setItem(SK+'-title',n);}catch(e){}
+}
+try{const sv=localStorage.getItem(SK+'-title');if(sv)setTitle(sv);}catch(e){}
+document.title=CUR_TITLE;
 try{Object.keys(CFG.theme||{}).forEach(k=>document.documentElement.style.setProperty('--'+k,CFG.theme[k]));}catch(e){}
 const MAXP=4, LBL=['A','B','C','D'];
 const pageBase=location.href.split('#')[0];
@@ -654,7 +664,7 @@ function startHost(room){
   /* 對外公開狀態：正解、重點、得分在老師「公布」之前一律不送出 */
   function pub(){
     const q=S.qList[S.qi];const rev=S.phase==='reveal';const open=rev&&S.showAns;const mask=rev&&!S.showAns;
-    return{ts:Date.now(),room,theme:THEME,stage:(S.phase==='lobby'||!S.stage)?stageOf(S.cfg.grades,S.cfg.tiers,S.cfg.cats):S.stage,phase:S.phase,paused:S.paused,qi:S.qi,total:S.qList.length,limit:S.limit,remain:Math.round(S.remain),
+    return{ts:Date.now(),room,theme:THEME,title:CUR_TITLE,stage:(S.phase==='lobby'||!S.stage)?stageOf(S.cfg.grades,S.cfg.tiers,S.cfg.cats):S.stage,phase:S.phase,paused:S.paused,qi:S.qi,total:S.qList.length,limit:S.limit,remain:Math.round(S.remain),
       q:(q&&S.phase!=='end'&&S.phase!=='lobby')?{cat:q.cat,grade:q.grade,tier:q.tier,q:q.q,opts:q.opts,tf:q.opts.length===2,ans:open?q.ans:null,exp:open?q.exp:null}:null,
       players:S.players.map(p=>({cid:p.cid,ci:p.ci,name:p.name,score:mask?p.score-(p.gain||0):p.score,answered:p.ans!=null,choice:rev?p.ans:null,gain:open?p.gain:null,on:online(p.cid)}))};
   }
@@ -770,6 +780,7 @@ function startHost(room){
     else if(el.dataset.cfg==='limit')c.limit=parseInt(el.value,10);
     else if(el.dataset.cfg==='auto')c.auto=el.checked;
     else if(el.dataset.cfg==='pub')c.pub=el.checked;
+    else if(el.dataset.cfg==='title')setTitle(el.value,true);
     else if(el.dataset.cat)c.cats=tog(c.cats,el.dataset.cat,el.checked);
     else return;
     persist();render();push();
@@ -849,6 +860,7 @@ function startHost(room){
       ${poolN<c.n?`<div class="row"><span class="warn">⚠ 符合條件的題目只有 ${poolN} 題，少於設定的 ${c.n} 題，本場將出 ${poolN} 題。</span></div>`:''}`;
     return`<div class="grid2"><div class="panel"><h3>① 遊戲設定</h3>
       <div class="row"><label class="t">題數</label><select data-cfg="n">${nOpts.map(v=>`<option value="${v}" ${c.n===v?'selected':''}>${v} 題</option>`).join('')}</select><span class="mu">符合條件的題庫共 <b style="color:var(--acc)">${poolN}</b> 題</span></div>
+      <div class="row"><label class="t">遊戲名稱</label><input type="text" data-cfg="title" maxlength="20" value="${esc(CUR_TITLE)}" placeholder="${esc(BASE_TITLE)}" aria-label="遊戲名稱"><span class="mu" style="font-size:13px">會同步顯示在大螢幕與選手手機；清空＝還原「${esc(BASE_TITLE)}」</span></div>
       <div class="row"><label class="t">每題時間</label><select data-cfg="limit">${[0,10,15,20,30,45,60].map(v=>`<option value="${v}" ${c.limit===v?'selected':''}>${v?v+' 秒':'不限時'}</option>`).join('')}</select></div>
       ${filt}
       <div class="row"><label class="t">作答結束</label><label style="color:var(--ink);font-size:14px"><input type="checkbox" data-cfg="auto" ${c.auto?'checked':''}> 全員作答後自動結算</label></div>
@@ -909,6 +921,7 @@ function startClient(role,room){
     if(m.s.ts<lastTs)return;
     lastTs=m.s.ts;recvAt=Date.now();st=m.s;
     if(st.theme&&st.theme!==THEME)applyTheme(st.theme);
+    if(st.title&&st.title!==CUR_TITLE)setTitle(st.title);
     if(st.phase==='lobby'||st.qi!==localQ&&st.phase==='question'){localChoice=null;localQ=st.qi;}
     const p=me();
     if(role==='play'&&p&&st.phase==='question'&&localChoice!==null&&!p.answered&&!st.paused)T.send({t:'answer',cid,q:st.qi,choice:localChoice});
@@ -929,8 +942,8 @@ function startClient(role,room){
   setInterval(updTimer,200);
   function sig(conn){
     if(!st)return'x';
-    if(role==='play'&&!me())return JSON.stringify(['join',conn,myName,full]);
-    return JSON.stringify([st.phase,st.paused,st.qi,conn,st.q&&st.q.ans,st.players.map(p=>[p.cid,p.ci,p.name,p.score,p.answered,p.choice,p.gain,p.on]),role==='play'?localChoice:0,THEME]);
+    if(role==='play'&&!me())return JSON.stringify(['join',conn,myName,full,THEME,CUR_TITLE]);
+    return JSON.stringify([st.phase,st.paused,st.qi,conn,st.q&&st.q.ans,st.players.map(p=>[p.cid,p.ci,p.name,p.score,p.answered,p.choice,p.gain,p.on]),role==='play'?localChoice:0,THEME,CUR_TITLE]);
   }
   function render(force){
     const conn=!!st&&Date.now()-recvAt<6000;
